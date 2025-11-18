@@ -28,7 +28,7 @@ export const curlQueue = new Queue('curl-generation', {
 export const curlQueueEvents = new QueueEvents('curl-generation', { connection });
 
 // Increase max listeners to prevent memory leak warnings when waiting for many jobs
-curlQueueEvents.setMaxListeners(100);
+curlQueueEvents.setMaxListeners(0);
 
 // Queue for embeddings generation
 export const embeddingsQueue = new Queue('embeddings-generation', {
