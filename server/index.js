@@ -303,15 +303,19 @@ app.post(
 );
 
 if (process.env.NODE_ENV === 'production') {
-    app.get('*', (req, res, next) => {
+    // Catch-all route for SPA - must be last before 404 handler
+    // Use '/*' instead of '*' for Express 5 compatibility
+    app.get('/*', (req, res, next) => {
         // Skip API routes and let them 404 properly
         if (
             req.path.startsWith('/api/') ||
             req.path.startsWith('/knowledge-base/') ||
-            req.path.startsWith('/documentation/')
+            req.path.startsWith('/documentation/') ||
+            req.path.startsWith('/admin/')
         ) {
             return next();
         }
+        // Serve index.html for all other routes (SPA routing)
         res.sendFile(path.join(rootDir, 'dist', 'index.html'));
     });
 }
