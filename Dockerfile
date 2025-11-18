@@ -26,9 +26,6 @@ RUN apt-get update && apt-get install -y \
     libatspi2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Yarn globally
-RUN npm install -g yarn
-
 # Set working directory
 WORKDIR /app
 
