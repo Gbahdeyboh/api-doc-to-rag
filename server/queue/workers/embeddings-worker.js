@@ -5,11 +5,16 @@ import { embeddings as embeddingsTable } from '../../db/schema/embeddings.js';
 import { db } from '../../db/index.js';
 import { logger } from '../../utils/logger.js';
 
-const connection = new IORedis({
-    host: process.env.REDIS_HOST || 'localhost',
-    port: parseInt(process.env.REDIS_PORT || '6379'),
-    maxRetriesPerRequest: null,
-});
+// Redis connection
+const connection = process.env.REDIS_URL
+    ? new IORedis(process.env.REDIS_URL, {
+          maxRetriesPerRequest: null,
+      })
+    : new IORedis({
+          host: process.env.REDIS_HOST || 'localhost',
+          port: parseInt(process.env.REDIS_PORT || '6379'),
+          maxRetriesPerRequest: null,
+      });
 
 /**
  * Worker for generating and storing embeddings for resources
