@@ -303,9 +303,9 @@ app.post(
 );
 
 if (process.env.NODE_ENV === 'production') {
-    // Catch-all route for SPA - must be last before 404 handler
-    // Use '/*' instead of '*' for Express 5 compatibility
-    app.get('/*', (req, res, next) => {
+    // Catch-all middleware for SPA - must be last before 404 handler
+    // Use middleware instead of route pattern to avoid Express 5 path-to-regexp issues
+    app.use((req, res, next) => {
         // Skip API routes and let them 404 properly
         if (
             req.path.startsWith('/api/') ||
@@ -313,6 +313,10 @@ if (process.env.NODE_ENV === 'production') {
             req.path.startsWith('/documentation/') ||
             req.path.startsWith('/admin/')
         ) {
+            return next();
+        }
+        // Skip if request is for a static file (has extension)
+        if (path.extname(req.path)) {
             return next();
         }
         // Serve index.html for all other routes (SPA routing)
