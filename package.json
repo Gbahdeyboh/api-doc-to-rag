@@ -18,6 +18,7 @@
         "db:setup": "yarn workspace server db:setup",
         "db:generate": "yarn workspace server db:generate",
         "db:migrate": "yarn workspace server db:migrate",
+        "db:run-all": "yarn workspace server db:run-all",
         "db:drop": "yarn workspace server db:drop",
         "db:pull": "yarn workspace server db:pull",
         "db:push": "yarn workspace server db:push",

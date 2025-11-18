@@ -12,6 +12,7 @@
         "db:setup": "node db/setup-vector.js",
         "db:generate": "drizzle-kit generate",
         "db:migrate": "node db/migrate.js",
+        "db:run-all": "node db/run-migrations.js",
         "db:drop": "drizzle-kit drop",
         "db:pull": "drizzle-kit introspect",
         "db:push": "drizzle-kit push",
