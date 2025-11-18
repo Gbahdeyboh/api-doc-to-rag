@@ -1,20 +1,12 @@
 import { Worker } from 'bullmq';
-import IORedis from 'ioredis';
 import { generateEmbeddings } from '../../services/embeddings.js';
 import { embeddings as embeddingsTable } from '../../db/schema/embeddings.js';
 import { db } from '../../db/index.js';
 import { logger } from '../../utils/logger.js';
+import { getRedisConnection } from '../redis-connection.js';
 
-// Redis connection
-const connection = process.env.REDIS_URL
-    ? new IORedis(process.env.REDIS_URL, {
-          maxRetriesPerRequest: null,
-      })
-    : new IORedis({
-          host: process.env.REDIS_HOST || 'localhost',
-          port: parseInt(process.env.REDIS_PORT || '6379'),
-          maxRetriesPerRequest: null,
-      });
+// Get centralized Redis connection
+const connection = getRedisConnection();
 
 /**
  * Worker for generating and storing embeddings for resources

@@ -1,26 +1,9 @@
 import { Queue, QueueEvents } from 'bullmq';
-import IORedis from 'ioredis';
 import { logger } from '../utils/logger.js';
+import { getRedisConnection, closeRedisConnection } from './redis-connection.js';
 
-// Redis connection
-// Support both REDIS_URL (Heroku) and REDIS_HOST/REDIS_PORT (local)
-const connection = process.env.REDIS_URL
-    ? new IORedis(process.env.REDIS_URL, {
-          maxRetriesPerRequest: null,
-      })
-    : new IORedis({
-          host: process.env.REDIS_HOST || 'localhost',
-          port: parseInt(process.env.REDIS_PORT || '6379'),
-          maxRetriesPerRequest: null,
-      });
-
-connection.on('error', error => {
-    logger.error('Redis connection error', { error: error.message });
-});
-
-connection.on('connect', () => {
-    logger.info('Redis connected successfully');
-});
+// Get centralized Redis connection
+const connection = getRedisConnection();
 
 // Queue for curl generation
 export const curlQueue = new Queue('curl-generation', {
@@ -76,7 +59,7 @@ process.on('SIGTERM', async () => {
     await curlQueueEvents.close();
     await embeddingsQueue.close();
     await embeddingsQueueEvents.close();
-    await connection.quit();
+    await closeRedisConnection();
 });
 
 process.on('SIGINT', async () => {
@@ -85,7 +68,7 @@ process.on('SIGINT', async () => {
     await curlQueueEvents.close();
     await embeddingsQueue.close();
     await embeddingsQueueEvents.close();
-    await connection.quit();
+    await closeRedisConnection();
     process.exit(0);
 });
 

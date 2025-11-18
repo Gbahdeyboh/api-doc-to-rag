@@ -1,19 +1,10 @@
 import { Worker } from 'bullmq';
-import IORedis from 'ioredis';
 import curlDocsGenerator from '../../agents/curl.js';
 import { logger } from '../../utils/logger.js';
+import { getRedisConnection } from '../redis-connection.js';
 
-// Redis connection
-// Support both REDIS_URL (Railway, Heroku) and REDIS_HOST/REDIS_PORT (local)
-const connection = process.env.REDIS_URL
-    ? new IORedis(process.env.REDIS_URL, {
-          maxRetriesPerRequest: null,
-      })
-    : new IORedis({
-          host: process.env.REDIS_HOST || 'localhost',
-          port: parseInt(process.env.REDIS_PORT || '6379'),
-          maxRetriesPerRequest: null,
-      });
+// Get centralized Redis connection
+const connection = getRedisConnection();
 
 /**
  * Worker for generating curl documentation from screenshots
