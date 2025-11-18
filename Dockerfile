@@ -1,5 +1,5 @@
-# Use Node.js base image
-FROM node:18-slim
+# Use Node.js 20 base image (required for @vercel/oidc dependency)
+FROM node:20-slim
 
 # Install Playwright system dependencies
 RUN apt-get update && apt-get install -y \
@@ -29,26 +29,25 @@ RUN apt-get update && apt-get install -y \
 # Set working directory
 WORKDIR /app
 
-# Copy package files
 COPY package.json yarn.lock ./
 COPY client/package.json ./client/
 COPY server/package.json ./server/
 
-# Install dependencies
 RUN yarn install --frozen-lockfile
 
 # Copy application code
 COPY . .
 
-# Install Playwright browsers
+# Install Playwright browsers (must be after dependencies are installed)
 RUN cd server && npx playwright install chromium && cd ..
 
-# Build frontend
 RUN yarn client:build
 
-# Expose port
+
 EXPOSE 8080
+
+# Set NODE_ENV for production runtime
+ENV NODE_ENV=production
 
 # Start command (only server - workers run in separate Railway service)
 CMD ["yarn", "start"]
-
