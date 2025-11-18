@@ -51,7 +51,7 @@ const embeddingsWorker = new Worker(
             };
         } catch (error) {
             logger.error(`Embeddings generation failed for job ${job.id}`, {
-                error: error.message,
+                error: error,
                 resourceId,
                 jobIndex,
             });
