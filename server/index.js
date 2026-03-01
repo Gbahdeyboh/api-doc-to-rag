@@ -4,17 +4,16 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { config } from 'dotenv';
 import { nanoid } from 'nanoid';
-import { browserAgent } from './agents/browser.js';
 import { findRelevantContent } from './actions/search.js';
 import { generateCollection } from './actions/postman.js';
-import { chatWithDocumentation } from './services/chat.js';
 import { isValidUrl } from './utils/utils.js';
 import { errorHandler, notFoundHandler, asyncHandler } from './middleware/errorHandler.js';
 import { ValidationError } from './utils/errors.js';
 import { logger } from './utils/logger.js';
 import { checkDatabaseConnection } from './db/index.js';
 import { progressEmitter } from './utils/progress-emitter.js';
-import { serverAdapter as bullBoardAdapter } from './queue/board.js';
+import { createTemporalWorker } from './temporal/worker.js';
+import { getTemporalClient } from './temporal/client.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -38,10 +37,6 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.use(express.json());
-
-// Mount Bull Board UI
-app.use('/admin/queues', bullBoardAdapter.getRouter());
-logger.info('Bull Board mounted at /admin/queues');
 
 // Serve static frontend files in production
 if (process.env.NODE_ENV === 'production') {
@@ -88,33 +83,15 @@ app.post(
 
         logger.info('Starting knowledge base generation', { url });
 
-        let browser, page;
-        try {
-            // Start browser agent to extract curl documentation
-            const result = await browserAgent(url);
-            browser = result.browser;
-            page = result.page;
-            const curlDocs = result.curlDocs;
+        const client = await getTemporalClient();
+        const handle = await client.workflow.start('documentationCrawlWorkflow', {
+            args: [url, null],
+            taskQueue: 'documentation-crawl',
+            workflowId: `crawl-${Date.now()}`,
+        });
+        const result = await handle.result();
 
-            res.json({
-                url,
-                data: curlDocs,
-            });
-        } finally {
-            // Ensure browser resources are always closed
-            if (page) {
-                await page
-                    .close()
-                    .catch(err => logger.error('Failed to close page', { error: err.message }));
-                logger.debug('Page closed');
-            }
-            if (browser) {
-                await browser
-                    .close()
-                    .catch(err => logger.error('Failed to close browser', { error: err.message }));
-                logger.debug('Browser closed');
-            }
-        }
+        res.json({ url, data: result });
     })
 );
 
@@ -151,13 +128,14 @@ app.get(
         // Send initial event
         progressEmitter.sendEvent(sessionId, 'started', { url }, 0);
 
-        let browser, page;
         try {
-            // Start browser agent to extract curl documentation (with sessionId for progress)
-            const result = await browserAgent(url, sessionId);
-            browser = result.browser;
-            page = result.page;
-            const curlDocs = result.curlDocs;
+            const client = await getTemporalClient();
+            const handle = await client.workflow.start('documentationCrawlWorkflow', {
+                args: [url, sessionId],
+                taskQueue: 'documentation-crawl',
+                workflowId: `crawl-${sessionId}`,
+            });
+            await handle.result();
 
             // Generate Postman collection automatically
             logger.info('Auto-generating Postman collection', { url, sessionId });
@@ -165,17 +143,10 @@ app.get(
                 message: 'Generating Postman collection...',
             });
 
-            const { collection, resourceCount, conversionReport } = await generateCollection(
-                url,
-                false // useAI = false for faster generation
-            );
+            const { collection } = await generateCollection(url, false);
 
-            // Send collection as part of the completion event
-            progressEmitter.sendCollection(sessionId, {
-                collection,
-            });
+            progressEmitter.sendCollection(sessionId, { collection });
 
-            // Send final completion event
             progressEmitter.sendComplete(sessionId, {
                 url,
                 message: 'Documentation generation and collection creation completed successfully!',
@@ -187,20 +158,6 @@ app.get(
                 error: error.message,
             });
             progressEmitter.sendError(sessionId, error);
-        } finally {
-            // Ensure browser resources are always closed
-            if (page) {
-                await page
-                    .close()
-                    .catch(err => logger.error('Failed to close page', { error: err.message }));
-                logger.debug('Page closed');
-            }
-            if (browser) {
-                await browser
-                    .close()
-                    .catch(err => logger.error('Failed to close browser', { error: err.message }));
-                logger.debug('Browser closed');
-            }
         }
 
         // Handle client disconnect
@@ -295,8 +252,13 @@ app.post(
 
         logger.info('Chat request', { url, message, hasResponseId: !!responseId });
 
-        // Use chat service for RAG-powered response with conversation continuity via Responses API
-        const result = await chatWithDocumentation(message, url, 4, responseId);
+        const client = await getTemporalClient();
+        const handle = await client.workflow.start('chatWorkflow', {
+            args: [message, url, responseId || null],
+            taskQueue: 'documentation-crawl',
+            workflowId: `chat-${nanoid()}`,
+        });
+        const result = await handle.result();
 
         res.json(result);
     })
@@ -332,8 +294,15 @@ app.use(errorHandler);
 
 // Check database connection before starting server
 checkDatabaseConnection()
-    .then(() => {
-        // Start server
+    .then(async () => {
+        // Start Temporal worker (co-located with server so activities share progressEmitter)
+        const worker = await createTemporalWorker();
+        worker.run().catch(error => {
+            logger.error('Temporal worker crashed', { error: error.message });
+        });
+        logger.info('Temporal worker running', { taskQueue: 'documentation-crawl' });
+
+        // Start Express server
         app.listen(PORT, () => {
             logger.info(`Server listening on port ${PORT}`);
         });

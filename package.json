@@ -10,11 +10,6 @@
     "scripts": {
         "start": "yarn workspace server start",
         "dev": "yarn workspace server dev",
-        "workers": "yarn workspace server workers",
-        "workers:dev": "yarn workspace server workers:dev",
-        "start:all": "yarn workspace server start:all",
-        "dev:all": "yarn workspace server dev:all",
-        "queue:inspect": "yarn workspace server queue:inspect",
         "client:dev": "yarn workspace doc-collection-frontend dev",
         "client:build": "yarn workspace doc-collection-frontend build",
         "db:setup": "yarn workspace server db:setup",
