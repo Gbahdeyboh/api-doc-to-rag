@@ -73,17 +73,23 @@ yarn db:migrate  # runs migrations
 
 **4. Run**
 
-Open three terminals:
+Open terminals:
 
 ```bash
 # Terminal 1 — Temporal dev server
 temporal server start-dev
 
-# Terminal 2 — app server
+# Terminal 2 — Start the server
 yarn dev
 
-# Terminal 3 — start the UI
+# Terminal 3 — Start the background workers (keep this terminal open!)
+yarn start workers:dev
+
+# Terminal 4 — Start the UI
 yarn client:dev
+
+# To view DB, run
+yarn db:studio
 ```
 
 Open `http://localhost:5173` for the UI, or `http://localhost:8233` for the Temporal workflow dashboard.
