@@ -33,76 +33,108 @@ Think of it as a "read this for me" button for API docs. It uses OpenAI's comput
 └─────────────────┘
 ```
 
-## Quick Start
+## Prerequisites
 
-You'll need Node.js, a PostgreSQL instance with `pgvector` extension, Redis, and an OpenAI API key.
+- Node.js 18+
+- PostgreSQL with the `pgvector` extension
+- [Temporal CLI](https://docs.temporal.io/cli#installation) (`brew install temporal` on macOS)
+- OpenAI API key
 
-### 1. Setup
+## Setup
+
+**1. Install dependencies**
 
 ```bash
-# Install dependencies
 yarn install
+npx playwright install chromium
+```
 
-# Setup environment
+**2. Configure environment**
+
+```bash
 cp .env.example .env
-# ... fill in your OPENAI_API_KEY, DATABASE_URL, and REDIS connection details
 ```
 
-### 2. Database & Workers
+Fill in `.env`:
 
-```bash
-# Enable vector extension & run migrations
-yarn db:setup
-yarn db:migrate
-
-# Start the server and the background workers (keep this terminal open!)
-yarn start:all
+```env
+OPENAI_API_KEY=sk-...
+DATABASE_URL=postgres://user:password@localhost:5432/dbname
+DISPLAY_WIDTH=1024
+DISPLAY_HEIGHT=768
 ```
 
-### 3. Run it
+**3. Set up the database**
 
 ```bash
-# Start the backend and frontend
+yarn db:setup    # enables pgvector extension
+yarn db:migrate  # runs migrations
+
+```
+
+**4. Run**
+
+Open terminals:
+
+```bash
+# Terminal 1 — Start the server
 yarn dev
+
+# Terminal 2 — Start the background workers (keep this terminal open!)
+yarn start workers:dev
+
+# Terminal 3 — Start the UI
+yarn client:dev
+
+# To view DB, run
+yarn db:studio
 ```
 
-Open `http://localhost:5173` to see the UI.
+Open `http://localhost:5173` for the UI, `http://localhost:{SERVER_PORT}/admin/queues` for the redis dashboard.
 
-## Usage
+## API
 
-**Generate Knowledge Base**
-POST to `/knowledge-base` with `{ "url": "https://docs.example.com" }` to start crawling.
+| Method | Endpoint                                    | Description                                 |
+| ------ | ------------------------------------------- | ------------------------------------------- |
+| `GET`  | `/knowledge-base/stream?url=<url>`          | Crawl a doc site (SSE — real-time progress) |
+| `POST` | `/knowledge-base`                           | Crawl a doc site (wait for result)          |
+| `GET`  | `/documentation/search?query=<q>&url=<url>` | Semantic search across stored docs          |
+| `POST` | `/documentation/chat`                       | Chat with docs using RAG                    |
+| `GET`  | `/documentation/postman?url=<url>`          | Generate a Postman collection               |
 
-**Search**
-GET `/api/search?query=auth&url=...` to find what you need.
+**Chat body:**
 
-**RAG / Agent Context**
-Use the search endpoint as a tool for your own AI agents. For example, you can expose it as an MCP (Model Context Protocol) server to give your IDE or chat agent direct access to this knowledge.
+```json
+{ "url": "https://docs.example.com", "message": "How do I authenticate?", "responseId": null }
+```
 
-### Example Use Case
+Pass the `responseId` from each response back as the next request's `responseId` to maintain conversation context.
 
-This can be used as a RAG database to provide an in-memory context to an LLM, or the APIs can be exposed as a tool in an MCP Server.
+## Example Use Case
 
-This example shows how you can use [Postman's Agent Mode](https://www.postman.com/product/agent-mode/) to generate an MCP server from these APIs and use that MCP server to provide additional context to Agent Mode.
+Use the search endpoint as a tool for your own AI agents, or expose it as an MCP server so your IDE or chat agent can query the knowledge base directly.
 
-**Step 1:** Fork the collection <br />
+**With Postman Agent Mode:**
+
+**Step 1:** Fork the collection
 
 [<img src="https://run.pstmn.io/button.svg" alt="Run In Postman" style="width: 128px; height: 32px;">](https://god.gw.postman.com/run-collection/21505573-fb56bc16-9711-47c8-8cfc-f13de56ba0d2?action=collection%2Ffork&source=rip_markdown&collection-url=entityId%3D21505573-fb56bc16-9711-47c8-8cfc-f13de56ba0d2%26entityType%3Dcollection%26workspaceId%3D1ee78290-27f9-489e-8c05-6ba1885fa187)
 
 **Step 2:** Generate an MCP Server using [Postman's MCP Server Generator](https://www.postman.com/explore/mcp-generator).
 
-**Step 3:** Connect Agent Mode to the generated MCP Server
+**Step 3:** Connect Agent Mode to the generated MCP Server.
 
 <img width="901" height="785" alt="Screenshot 2025-10-30 at 18 51 30" src="https://github.com/user-attachments/assets/28b342ff-7aca-4a6d-8c17-c04446ccef22" />
 
-**Step 4:** Prompt Agent mode and watch it use its tools to query its knowledge base
+**Step 4:** Prompt Agent Mode and watch it query the knowledge base.
+
 <img width="901" height="818" alt="Screenshot 2025-10-30 at 18 58 37" src="https://github.com/user-attachments/assets/e80a6953-461e-49e2-83b4-e6f74ffaaeda" />
 
-[Watch a Demo Here](https://www.linkedin.com/posts/gbahdeyboh_i-built-an-ai-agent-that-takes-the-url-of-activity-7390749532193587200-NuR4/)
+[Watch a demo](https://www.linkedin.com/posts/gbahdeyboh_i-built-an-ai-agent-that-takes-the-url-of-activity-7390749532193587200-NuR4/)
 
 ## Contributing
 
-If you want to add a feature or fix a bug, feel free to open a PR. We use `yarn` workspaces, so make sure you run commands in the root or specify the workspace.
+PRs welcome. This project uses Yarn workspaces — run commands from the root or target a workspace with `yarn workspace server <command>`.
 
 ## License
 
