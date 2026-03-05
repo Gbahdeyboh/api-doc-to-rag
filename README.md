@@ -37,7 +37,6 @@ Think of it as a "read this for me" button for API docs. It uses OpenAI's comput
 
 - Node.js 18+
 - PostgreSQL with the `pgvector` extension
-- [Temporal CLI](https://docs.temporal.io/cli#installation) (`brew install temporal` on macOS)
 - OpenAI API key
 
 ## Setup
@@ -66,10 +65,26 @@ DISPLAY_HEIGHT=768
 
 **3. Set up the database**
 
+First, create the database (replace `dbname` with the database name from your `DATABASE_URL`):
+
+```bash
+psql postgres
+```
+Then in the psql prompt:
+```sql
+CREATE DATABASE dbname;
+\q
+```
+
+Then run the setup commands:
 ```bash
 yarn db:setup    # enables pgvector extension
 yarn db:migrate  # runs migrations
+```
 
+**Note:** If you get an error that the `pgvector` extension is not installed, follow the instructions printed by the setup script. On macOS, you can install it with:
+```bash
+brew install pgvector
 ```
 
 **4. Run**
