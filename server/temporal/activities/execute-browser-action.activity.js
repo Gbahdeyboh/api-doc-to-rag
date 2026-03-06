@@ -32,9 +32,16 @@ const getDelayForAction = action => {
 };
 
 export async function executeBrowserActionActivity(browserId, action, sessionId) {
-    const { page } = getSession(browserId);
+    const session = getSession(browserId);
+    
+    if (!session) {
+        logger.error('Browser session not found', { browserId });
+        throw new Error(`Browser session not found for browserId: ${browserId}`);
+    }
+    
+    const { page } = session;
 
-    logger.debug('Executing browser action', { action: action.action });
+    logger.debug('Executing browser action', { action: action.action, browserId });
 
     if (sessionId) {
         progressEmitter.sendAction(sessionId, action.action, { details: action });

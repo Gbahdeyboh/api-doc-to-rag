@@ -32,15 +32,21 @@ export async function documentationCrawlWorkflow(url, sessionId) {
     });
 
     const browserId = await startBrowserActivity(url, sessionId);
-
-    let { responseId, action, callId, isDone, safetyChecks } =
-        await computerUseInitialRequestActivity(browserId, sessionId);
-
-    const allCurlDocs = [];
-    let curlPreviousResponseId = null;
+    let browserClosed = false;
 
     try {
+        let { responseId, action, callId, isDone, safetyChecks } =
+            await computerUseInitialRequestActivity(browserId, sessionId);
+
+        const allCurlDocs = [];
+        let curlPreviousResponseId = null;
+
         while (!isDone) {
+            // Check if we have a valid action before executing
+            if (!action) {
+                throw new Error('No action provided to execute');
+            }
+
             const { screenshotBase64 } = await executeBrowserActionActivity(
                 browserId,
                 action,
@@ -66,23 +72,40 @@ export async function documentationCrawlWorkflow(url, sessionId) {
 
             ({ responseId, action, callId, isDone, safetyChecks } = feedback);
         }
-    } finally {
-        await closeBrowserActivity(browserId);
+
+        // Browser operations are complete, now close it before continuing
+        if (!browserClosed) {
+            browserClosed = true;
+            await closeBrowserActivity(browserId);
+        }
+
+        // Process the results after browser is closed
+        if (allCurlDocs.length === 0) {
+            return { success: true, resourceCount: 0 };
+        }
+
+        const resources = await createResourcesActivity(allCurlDocs, url);
+
+        if (resources.length === 0) {
+            return { success: true, resourceCount: 0 };
+        }
+
+        await Promise.all(
+            resources.map(resource => generateEmbeddingsActivity(resource.id, resource.content))
+        );
+
+        return { success: true, resourceCount: resources.length };
+    } catch (error) {
+        // Only close browser on error if it hasn't been closed yet
+        if (!browserClosed) {
+            browserClosed = true;
+            try {
+                await closeBrowserActivity(browserId);
+            } catch (closeError) {
+                // Log but don't fail the workflow if closing fails
+                console.error('[Workflow] Error closing browser on failure:', closeError);
+            }
+        }
+        throw error;
     }
-
-    if (allCurlDocs.length === 0) {
-        return { success: true, resourceCount: 0 };
-    }
-
-    const resources = await createResourcesActivity(allCurlDocs, url);
-
-    if (resources.length === 0) {
-        return { success: true, resourceCount: 0 };
-    }
-
-    await Promise.all(
-        resources.map(resource => generateEmbeddingsActivity(resource.id, resource.content))
-    );
-
-    return { success: true, resourceCount: resources.length };
 }

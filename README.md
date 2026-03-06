@@ -82,9 +82,6 @@ temporal server start-dev
 # Terminal 2 — Start the server
 yarn dev
 
-# Terminal 3 — Start the background workers (keep this terminal open!)
-yarn start workers:dev
-
 # Terminal 4 — Start the UI
 yarn client:dev
 

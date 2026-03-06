@@ -16,7 +16,14 @@ const takeScreenshot = async page => {
 };
 
 export async function computerUseInitialRequestActivity(browserId, sessionId) {
-    const { page } = getSession(browserId);
+    const session = getSession(browserId);
+    
+    if (!session) {
+        logger.error('Browser session not found', { browserId });
+        throw new Error(`Browser session not found for browserId: ${browserId}`);
+    }
+    
+    const { page } = session;
 
     const screenshotBase64 = await takeScreenshot(page);
 

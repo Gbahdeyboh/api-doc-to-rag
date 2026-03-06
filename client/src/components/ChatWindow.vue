@@ -176,7 +176,7 @@ const messages = ref([]);
 const inputMessage = ref('');
 const isLoading = ref(false);
 const messagesContainer = ref(null);
-const currentResponseId = ref(null); // Track response ID from Responses API
+const conversationId = ref(null); // Temporal workflowId for a single long-lived chat session
 
 // Reset conversation when chat window is closed and reopened
 watch(
@@ -184,7 +184,7 @@ watch(
     (isOpen, wasOpen) => {
         // When closing, reset the conversation
         if (wasOpen && !isOpen) {
-            currentResponseId.value = null;
+            conversationId.value = null;
             messages.value = [];
         }
     }
@@ -230,7 +230,7 @@ const sendMessage = async () => {
             body: JSON.stringify({
                 url: props.url,
                 message: userMessage,
-                responseId: currentResponseId.value, // Responses API uses this for stateful conversations
+                conversationId: conversationId.value,
             }),
         });
 
@@ -241,9 +241,9 @@ const sendMessage = async () => {
 
         const data = await response.json();
 
-        // Update response ID from Responses API for next message
-        if (data.responseId) {
-            currentResponseId.value = data.responseId;
+        // Persist conversationId so subsequent messages reuse the same workflow
+        if (data.conversationId) {
+            conversationId.value = data.conversationId;
         }
 
         // Add assistant message
