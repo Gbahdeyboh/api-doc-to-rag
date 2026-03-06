@@ -1,4 +1,4 @@
-import { condition, proxyActivities, setHandler } from '@temporalio/workflow';
+import { condition, defineUpdate, proxyActivities, setHandler } from '@temporalio/workflow';
 
 /**
  * Long-lived chat session workflow.
@@ -7,6 +7,8 @@ import { condition, proxyActivities, setHandler } from '@temporalio/workflow';
  * - Each user message is handled via an Update (`sendMessage`) which runs activities.
  * - Maintains conversation continuity via `previousResponseId` stored in workflow state.
  */
+const sendMessageUpdate = defineUpdate('sendMessage');
+
 export async function chatWorkflow(url) {
     const { searchDocumentationActivity } = proxyActivities({
         startToCloseTimeout: '1 minute',
@@ -20,7 +22,7 @@ export async function chatWorkflow(url) {
 
     let previousResponseId = null;
 
-    setHandler('sendMessage', async message => {
+    setHandler(sendMessageUpdate, async message => {
         const relevantChunks = await searchDocumentationActivity(message, url);
         const result = await generateChatResponseActivity(message, relevantChunks, previousResponseId);
 
