@@ -236,7 +236,7 @@ app.get(
 app.post(
     '/documentation/chat',
     asyncHandler(async (req, res) => {
-        const { url, message, responseId } = req.body;
+        const { url, message, conversationId } = req.body;
 
         if (!url) {
             throw new ValidationError('URL is required in the request body');
@@ -250,17 +250,29 @@ app.post(
             throw new ValidationError('Invalid URL format. Please provide a valid URL');
         }
 
-        logger.info('Chat request', { url, message, hasResponseId: !!responseId });
+        logger.info('Chat request', { url, message, hasConversationId: !!conversationId });
 
         const client = await getTemporalClient();
-        const handle = await client.workflow.start('chatWorkflow', {
-            args: [message, url, responseId || null],
-            taskQueue: 'documentation-crawl',
-            workflowId: `chat-${nanoid()}`,
-        });
-        const result = await handle.result();
+        let handle;
+        let workflowId = conversationId;
 
-        res.json(result);
+        if (!workflowId) {
+            workflowId = `chat-${nanoid()}`;
+            handle = await client.workflow.start('chatWorkflow', {
+                args: [url],
+                taskQueue: 'documentation-crawl',
+                workflowId,
+            });
+        } else {
+            handle = client.workflow.getHandle(workflowId);
+        }
+
+        // Route each message as an update on the same workflow (same conversation).
+        const result = await handle.executeUpdate('sendMessage', {
+            args: [message],
+        });
+
+        res.json({ ...result, conversationId: workflowId });
     })
 );
 
